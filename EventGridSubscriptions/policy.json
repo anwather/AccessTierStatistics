@@ -1,0 +1,134 @@
+{
+    "mode": "All",
+    "policyRule": {
+        "if": {
+            "allOf": [
+                {
+                    "field": "type",
+                    "equals": "Microsoft.Storage/storageAccounts"
+                },
+                {
+                    "field": "name",
+                    "notEquals": "[parameters('functionResourceId')]"
+                },
+                {
+                    "field": "id",
+                    "in": "[parameters('storageAccounts')]"
+                }
+            ]
+        },
+        "then": {
+            "effect": "deployIfNotExists",
+            "details": {
+                "type": "Microsoft.EventGrid/systemTopics",
+                "existenceCondition": {
+                    "allOf": [
+                        {
+                            "field": "name",
+                            "equals": "accesstierstatistics"
+                        },
+                        {
+                            "field": "Microsoft.EventGrid/systemTopics/topicType",
+                            "equals": "Microsoft.Storage.StorageAccounts"
+                        },
+                        {
+                            "field": "Microsoft.EventGrid/systemTopics/source",
+                            "equals": "[field('id')]"
+                        }
+                    ]
+                },
+                "roleDefinitionIds": [
+                    "/providers/Microsoft.Authorization/roleDefinitions/1e241071-0855-49ea-94dc-649edcd759de",
+                    "/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772"
+                ],
+                "deployment": {
+                    "properties": {
+                        "mode": "incremental",
+                        "template": {
+                            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                            "contentVersion": "1.0.0.0",
+                            "parameters": {
+                                "resourceLocation": {
+                                    "type": "string"
+                                },
+                                "source": {
+                                    "type": "string"
+                                },
+                                "storageAccountName": {
+                                    "type": "string"
+                                },
+                                "functionResourceId": {
+                                    "type": "string"
+                                }
+                            },
+                            "resources": [
+                                {
+                                    "type": "Microsoft.EventGrid/systemTopics",
+                                    "apiVersion": "2022-06-15",
+                                    "name": "accesstierstatistics",
+                                    "location": "[parameters('resourceLocation')]",
+                                    "properties": {
+                                        "source": "[parameters('source')]",
+                                        "topicType": "Microsoft.Storage.StorageAccounts"
+                                    }
+                                },
+                                {
+                                    "type": "Microsoft.EventGrid/systemTopics/eventSubscriptions",
+                                    "apiVersion": "2022-06-15",
+                                    "name": "[concat('accesstierstatistics/', parameters('storageAccountName') )]",
+                                    "properties": {
+                                        "destination": {
+                                            "endpointType": "AzureFunction",
+                                            "properties": {
+                                                "resourceId": "[parameters('functionResourceId')]"
+                                            }
+                                        },
+                                        "filter": {
+                                            "includedEventTypes": [
+                                                "Microsoft.Storage.BlobInventoryPolicyCompleted"
+                                            ]
+                                        }
+                                    },
+                                    "dependsOn": [
+                                        "[resourceId('Microsoft.EventGrid/systemTopics', 'accesstierstatistics')]"
+                                    ]
+                                }
+                            ]
+                        },
+                        "parameters": {
+                            "resourceLocation": {
+                                "value": "[field('location')]"
+                            },
+                            "source": {
+                                "value": "[field('id')]"
+                            },
+                            "storageAccountName": {
+                                "value": "[field('name')]"
+                            },
+                            "functionResourceId": {
+                                "value": "[parameters('functionResourceId')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "parameters": {
+        "storageAccounts": {
+            "type": "Array",
+            "metadata": {
+                "displayName": "storageAccounts",
+                "description": null,
+                "strongType": "Microsoft.Storage/storageAccounts"
+            }
+        },
+        "functionResourceId": {
+            "type": "String",
+            "metadata": {
+                "displayName": "functionResourceId",
+                "description": null
+            }
+        }
+    }
+}
